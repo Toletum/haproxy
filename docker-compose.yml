@@ -1,0 +1,57 @@
+services:
+  gateway-proxy:
+    image: haproxy:2.8-alpine
+    container_name: haproxy-gateway
+    ports:
+      - "80:80"
+    environment:
+      - AUTH_SERVICE_URL=http://mi_auth_service:5000
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./auth.lua:/etc/haproxy/auth.lua:ro
+    depends_on:
+      - mi_app_backend
+      - mi_redis
+
+  mi_auth_service:
+    image: python:alpine
+    container_name: mi_auth_service
+    volumes:
+      - jcs:/app
+      - ./main.py:/main.py:ro
+      - ./templates:/templates:ro
+    working_dir: /app
+    command: >
+      /app/venv/bin/python /main.py
+    depends_on:
+      - mi_redis
+
+  mi_redis:
+    image: redis:alpine
+    container_name: mi_redis
+    command: redis-server --protected-mode no
+    volumes:
+      - redis_data:/data
+
+  ui_redis:
+    image: redis/redisinsight:latest
+    container_name: ui_redis
+    environment:
+      - REDIS_HOSTS=mi_redis:6379
+    depends_on:
+      - mi_redis
+
+  mi_app_backend:
+    image: mendhak/http-https-echo
+    container_name: mi_app_backend
+
+  mi_app2_backend:
+    image: hashicorp/http-echo:latest
+    container_name: mi_app2_backend
+    command: ["-text=Hola desde Docker!"]
+
+
+volumes:
+  jcs:
+    external: true # Cambia a false si quieres que Docker lo cree automáticamente
+  redis_data:
